@@ -61,6 +61,8 @@ class Manager:
                     # Setup the MQTT payloads
                     self.mqtt_payloads = MQTTPayloads(device=self.device)
                     
+                    self.logger.info(f"Sending payloads...")
+                    
                     # Setup the MQTT callback function
                     self.mqtt_callback = MQTTCallback(device=self.device, commands=self.commands)
                     
@@ -110,7 +112,7 @@ if __name__ == "__main__":
     parser.add_argument("--address", type=str, required=True, help="BLE device address")
     parser.add_argument("--mqtt", action='store_true', help="Enable MQTT")
     parser.add_argument("--mqtt_broker", type=str, help="MQTT broker address")
-    parser.add_argument("--mqtt_port", type=int, help="MQTT broker port")
+    parser.add_argument("--mqtt_port", default=1883, type=int, help="MQTT broker port")
     parser.add_argument("--mqtt_user", type=str, help="MQTT username")
     parser.add_argument("--mqtt_password", type=str, help="MQTT password")
     parser.add_argument("--logging_level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")

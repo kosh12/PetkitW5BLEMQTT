@@ -470,19 +470,31 @@ class MQTTPayloads:
                 "payload_off": 1,
                 "value_template": "{{ value_json.is_locked }}"
             },
+            #"filter_reset": {
+            #    "name": "Reset filter",
+            #    "device_type": "button",
+            #    "icon": "mdi:restart-alert",
+            #    "unique_id": f"{self.device.mac_readable}",
+            #    "state_topic": f"PetkitMQTT/{self.device.mac_readable}/state",
+            #    "command_topic": f"PetkitMQTT/{self.device.mac_readable}/command",
+            #    "availability_topic": f"PetkitMQTT/{self.device.mac_readable}/availability",
+            #    "payload_available": "online",
+            #    "payload_not_available": "offline",
+            #    "payload_on": 1,
+            #    "payload_off": 0,
+            #    "value_template": "{\"reset_filter\": \"{{ value }}\"}"
+            #},
             "filter_reset": {
                 "name": "Reset filter",
                 "device_type": "button",
                 "icon": "mdi:restart-alert",
                 "unique_id": f"{self.device.mac_readable}",
-                "state_topic": f"PetkitMQTT/{self.device.mac_readable}/state",
                 "command_topic": f"PetkitMQTT/{self.device.mac_readable}/command",
                 "availability_topic": f"PetkitMQTT/{self.device.mac_readable}/availability",
                 "payload_available": "online",
                 "payload_not_available": "offline",
-                "payload_on": 1,
-                "payload_off": 0,
-                "command_template": "{\"reset_filter\": {{ 1 }} }"
+                "payload_press": "1",
+                "command_template": "{\"reset_filter\": {{ value }} }"
             },
             "state_switch": {
                 "name": "Run",
