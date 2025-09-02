@@ -4,7 +4,8 @@ import asyncio
 
 class MQTTClient:
     def __init__(self, logger, client_id, broker, port, username=None, password=None, keepalive=60):
-        self.client = mqtt.Client(client_id)
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id)
+
         if username and password:
             self.client.username_pw_set(username, password)
         self.broker = broker
@@ -29,7 +30,8 @@ class MQTTClient:
         self.logger.info(f"Message received: {msg.topic} {msg.payload}")
 
     def set_on_message(self, on_message):
-        self.client.on_message = lambda client, userdata, message: asyncio.run(on_message(client, userdata, message))
+        loop = asyncio.get_running_loop()
+        self.client.on_message = lambda client, userdata, message: asyncio.run_coroutine_threadsafe(on_message(client, userdata, message), loop)
 
     def on_subscribe(self, client, userdata, mid, granted_qos):
         self.logger.info(f"Subscribed with QoS: {granted_qos}")
