@@ -7,6 +7,12 @@ class Commands:
         self.ble_manager = ble_manager
         self.device = device
         self.logger = logger  # Use the centralized logger
+        # Обработка отсутствующего mac
+        if hasattr(ble_manager, 'mac') and ble_manager.mac is not None:
+            self.mac = ble_manager.mac
+        else:
+            self.mac = None
+            self.logger.warning("ble_manager.mac is not available")
         self.sequence = 0
         
     def increment_sequence(self):
@@ -312,4 +318,5 @@ class Commands:
         self.increment_sequence()
         
         self.logger.info(f"Queued command: {cmd}")
+
         return
