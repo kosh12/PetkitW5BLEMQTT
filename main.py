@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 from PetkitW5BLEMQTT import BLEManager, Constants, Device, EventHandlers, Commands, Logger, MQTTClient, MQTTCallback, MQTTPayloads, Utils
+from PetkitW5BLEMQTT.mqtt_discovery import MQTTDiscovery
 
 class Manager:
     def __init__(self, address, mqtt_enabled=False, mqtt_settings=None, logging_level=logging.INFO):
@@ -129,4 +130,5 @@ if __name__ == "__main__":
     logging_level = getattr(logging, args.logging_level.upper(), logging.INFO)
 
     manager = Manager(args.address, mqtt_enabled=args.mqtt, mqtt_settings=mqtt_settings, logging_level=logging_level)
+
     asyncio.run(manager.run(args.address))
