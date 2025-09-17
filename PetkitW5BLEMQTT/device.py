@@ -19,6 +19,12 @@ class Device:
         self.device_type = 0
         self.type_code = 0
         self.rssi = 0
+        
+        # 🔄 Флаги обновления состояния
+        self.needs_state_update = False
+        self.needs_config_update = False
+        self.last_update_time = 0
+        
         self._mac_readable = self.mac_readable
         self._name_readable = self.name_readable
         self._voltage = 0.0
@@ -62,6 +68,65 @@ class Device:
         self._dnd_on_byte2 = 0
         self._dnd_off_byte1 = 0
         self._dnd_off_byte2 = 0
+
+    def mark_state_for_update(self):
+        """Пометить что нужно обновить состояние"""
+        self.needs_state_update = True
+        
+    def mark_config_for_update(self):
+        """Пометить что нужно обновить конфигурацию"""
+        self.needs_config_update = True
+        
+    def mark_all_for_update(self):
+        """Пометить что нужно обновить всё"""
+        self.needs_state_update = True
+        self.needs_config_update = True
+        
+    def clear_update_flags(self):
+        """Очистить флаги обновления"""
+        self.needs_state_update = False
+        self.needs_config_update = False
+        
+    async def update_if_needed(self, commands, force=False):
+        """Обновить состояние если есть флаги или принудительно"""
+        import time
+        
+        if force or self.needs_state_update or self.needs_config_update:
+            current_time = time.time()
+            
+            # Защита от слишком частых обновлений (не чаще чем раз в 2 секунды)
+            if current_time - self.last_update_time < 2.0:
+                return
+                
+            self.last_update_time = current_time
+            
+            if self.needs_state_update:
+                await commands.get_device_state()
+                self.needs_state_update = False
+                
+            if self.needs_config_update:
+                await commands.get_device_config()
+                self.needs_config_update = False
+                
+    # 🔧 Методы для конкретных изменений
+    def on_led_changed(self):
+        """Вызывать после изменения LED"""
+        self.mark_state_for_update()
+        self.mark_config_for_update()
+        
+    def on_dnd_changed(self):
+        """Вызывать после изменения DND"""
+        self.mark_state_for_update()
+        self.mark_config_for_update()
+        
+    def on_filter_reset(self):
+        """Вызывать после сброса фильтра"""
+        self.mark_state_for_update()
+        
+    def on_mode_changed(self):
+        """Вызывать после изменения режима"""
+        self.mark_state_for_update()
+        self.mark_config_for_update()
 
     @property
     def status(self):
