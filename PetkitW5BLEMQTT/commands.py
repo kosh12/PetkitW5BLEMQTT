@@ -22,8 +22,7 @@ class Commands:
     async def update_device_state(self):
         """Обновляем состояние устройства после изменений"""
         await asyncio.sleep(1)  # Ждем выполнение команды
-        await self.get_device_state()
-        await self.get_device_config()
+        await self.device.update_if_needed(self, force=True)
         self.logger.info("Device state updated after command")
     
     def init_device_data(self):
@@ -216,7 +215,7 @@ class Commands:
         
         self.increment_sequence()
         self.logger.info(f"Queued command: {cmd}")
-        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
+        self.device.on_led_changed()  # ← ПОМЕЧАЕМ ДЛЯ ОБНОВЛЕНИЯ
         return
 
     async def set_dnd_setting(self, state):
@@ -230,7 +229,7 @@ class Commands:
         
         self.increment_sequence()
         self.logger.info(f"Queued command: {cmd}")
-        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
+        self.device.on_dnd_changed()  # ← ПОМЕЧАЕМ ДЛЯ ОБНОВЛЕНИЯ
         return
 
     async def set_device_mode(self, state, mode):
@@ -244,7 +243,7 @@ class Commands:
         
         self.increment_sequence()
         self.logger.info(f"Queued command: {cmd}")
-        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
+        self.device.on_mode_changed()  # ← ПОМЕЧАЕМ ДЛЯ ОБНОВЛЕНИЯ
         return
 
     async def set_device_config(self, data):
@@ -257,7 +256,7 @@ class Commands:
         
         self.increment_sequence()
         self.logger.info(f"Queued command: {cmd}")
-        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
+        self.device.mark_all_for_update()  # ← ПОМЕЧАЕМ ДЛЯ ОБНОВЛЕНИЯ
         return
 
     async def set_reset_filter(self):
@@ -271,7 +270,7 @@ class Commands:
         
         self.increment_sequence()
         self.logger.info(f"Queued command: {cmd}")
-        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
+        self.device.on_filter_reset()  # ← ПОМЕЧАЕМ ДЛЯ ОБНОВЛЕНИЯ
         return
 
     async def set_updated_light(self, state):
@@ -285,7 +284,7 @@ class Commands:
         
         self.increment_sequence()
         self.logger.info(f"Queued command: {cmd}")
-        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
+        self.device.on_led_changed()  # ← ПОМЕЧАЕМ ДЛЯ ОБНОВЛЕНИЯ
         return
 
     async def set_updated_dnd(self, state):
@@ -299,7 +298,7 @@ class Commands:
         
         self.increment_sequence()
         self.logger.info(f"Queued command: {cmd}")
-        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
+        self.device.on_dnd_changed()  # ← ПОМЕЧАЕМ ДЛЯ ОБНОВЛЕНИЯ
         return
         
     async def get_device_update(self):
