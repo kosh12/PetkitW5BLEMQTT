@@ -6,8 +6,7 @@ class Commands:
     def __init__(self, ble_manager, device, logger):
         self.ble_manager = ble_manager
         self.device = device
-        self.logger = logger  # Use the centralized logger
-        # Обработка отсутствующего mac
+        self.logger = logger
         if hasattr(ble_manager, 'mac') and ble_manager.mac is not None:
             self.mac = ble_manager.mac
         else:
@@ -17,10 +16,15 @@ class Commands:
         
     def increment_sequence(self):
         self.sequence += 1
-        
-        # If sequence is too large, we'll reset
         if self.sequence > 255:
             self.sequence = 0
+    
+    async def update_device_state(self):
+        """Обновляем состояние устройства после изменений"""
+        await asyncio.sleep(1)  # Ждем выполнение команды
+        await self.get_device_state()
+        await self.get_device_config()
+        self.logger.info("Device state updated after command")
     
     def init_device_data(self):
         connectiondata = self.ble_manager.connectiondata[self.device.mac].details
@@ -34,16 +38,12 @@ class Commands:
         device_properties = Utils.get_device_properties(device_integer_identifier)
         
         self.device.name = device_properties['name']
-        self.device.name_readable = device_properties['name'].replace("_", " ") # Replace _ with space
+        self.device.name_readable = device_properties['name'].replace("_", " ")
         self.device.product_name = device_properties['product_name']
         self.device.device_type = device_properties['device_type']
         self.device.type_code = device_properties['type_code']
     
     async def init_device_connection(self):
-        # Basically this function secures the sequence
-        # of which we're sending the commands.
-        # At the same time, we're ensuring we're getting
-        # the necessary parameters registered - e.g. serial
         await self.get_device_details()
         await asyncio.sleep(1.5)
         
@@ -79,39 +79,27 @@ class Commands:
         await self.get_device_config()
 
     async def get_battery(self):
-        cmd = 66                            # Command for getting device details
-        type = 1                            # Sending 1
-        seq = self.sequence                 # Example sequence number       
-        data = [0, 0]                       # Placeholders
+        cmd = 66
+        type = 1
+        seq = self.sequence
+        data = [0, 0]
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
         return
 
     async def init_device(self):
-        cmd = 73                            # Command for getting device details
-        type = 1                            # Sending 1
-        seq = self.sequence                 # Example sequence number       
+        cmd = 73
+        type = 1
+        seq = self.sequence
 
-        # In case you initialize the device using this class
-        # the device_id will be erased after CMD 73
-        # there seems to be somekind of validation of device_id vs secret
-        # Should you want to control the device through 
-        # the Petkit app, of some strange reason you will need to power cycle the device
-
-        # Reverse the device_id_bytes array
-        # replace the last two zeroes with 13 37 
-        # and pad the array with zeroes to use as secret
         self.secret = Utils.pad_array(Utils.replace_last_two_if_zero(Utils.reverse_unsigned_array(self.device.device_id_bytes)), 8)
-        
-        # Pad the device_id_bytes with zeroes
         device_id = Utils.pad_array(self.device.device_id_bytes, 8)
         
-        data = [0, 0] + device_id + self.secret    # Placeholders
+        data = [0, 0] + device_id + self.secret
         self.logger.debug(f"Device ID: {device_id}")
         self.logger.debug(f"Secret: {self.secret}")
         self.logger.debug(f"Data: {data}")
@@ -120,203 +108,209 @@ class Commands:
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
         return
 
     async def set_datetime(self):
-        cmd = 84                            # Command for getting device details
-        type = 1                            # Sending 1
-        seq = self.sequence                 # Example sequence number       
-        data = Utils.time_in_bytes()        # Datetime data
+        cmd = 84
+        type = 1
+        seq = self.sequence
+        data = Utils.time_in_bytes()
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
         return
 
     async def get_device_sync(self):
-        cmd = 86                            # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        #data = [0, 0, 253, 54, 124, 210, 241, 44]   # What's going on here?
-        data = [0, 0] + self.secret         # What's going on here?
+        cmd = 86
+        type = 1
+        seq = self.sequence
+        data = [0, 0] + self.secret
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
         return
 
     async def get_device_info(self):
-        cmd = 200                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [] 
+        cmd = 200
+        type = 1
+        seq = self.sequence
+        data = []
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
         return
         
     async def get_device_type(self):
-        cmd = 201                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [] 
+        cmd = 201
+        type = 1
+        seq = self.sequence
+        data = []
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
         return
         
     async def get_device_state(self):
-        cmd = 210                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [0, 0] 
+        cmd = 210
+        type = 1
+        seq = self.sequence
+        data = [0, 0]
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
         return
         
     async def get_device_config(self):
-        cmd = 211                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [0, 0] 
+        cmd = 211
+        type = 1
+        seq = self.sequence
+        data = [0, 0]
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
         return
 
     async def get_device_details(self):
-    
         if self.device.device_id:
             return
         
-        cmd = 213                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [0, 0]                       # No additional data for this command
+        cmd = 213
+        type = 1
+        seq = self.sequence
+        data = [0, 0]
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
         return
-    
-    # Not used -- maybe never
-    async def set_light_setting(self):
-        cmd = 215                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [0]                          # 0 resets it
 
+    async def set_light_setting(self, state):
+        cmd = 215
+        type = 1
+        seq = self.sequence
+        data = [state]
+        
+        bytes = Utils.build_command(seq, cmd, type, data)
+        await self.ble_manager.message_producer(bytes)
+        
+        self.increment_sequence()
+        self.logger.info(f"Queued command: {cmd}")
+        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
         return
 
-    # Not used -- maybe never
-    async def set_dnd_setting(self):
-        cmd = 216                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [0]                          # 0 resets it
-
+    async def set_dnd_setting(self, state):
+        cmd = 216
+        type = 1
+        seq = self.sequence
+        data = [state]
+        
+        bytes = Utils.build_command(seq, cmd, type, data)
+        await self.ble_manager.message_producer(bytes)
+        
+        self.increment_sequence()
+        self.logger.info(f"Queued command: {cmd}")
+        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
         return
 
     async def set_device_mode(self, state, mode):
-        cmd = 220                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [state, mode]                # State 1 for on, 0 for off - Mode 1 for normal, 2 for smart
+        cmd = 220
+        type = 1
+        seq = self.sequence
+        data = [state, mode]
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
+        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
         return
 
-    #async def set_device_config(self, smart_time_on, smart_time_off, led_switch, led_brightness, led_light_time_on_1, led_light_time_on_2, led_light_time_off_1, led_light_time_off_2, do_not_disturb_switch, do_not_disturb_time_start_1, do_not_disturb_time_start_2, do_not_disturb_time_end_1, do_not_disturb_time_end_2, is_locked):
     async def set_device_config(self, data):
-        cmd = 221                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number       
-        #data = [smart_time_on, smart_time_off, led_switch, led_brightness, led_light_time_on_1, led_light_time_on_2, led_light_time_off_1, led_light_time_off_2, do_not_disturb_switch, do_not_disturb_time_start_1, do_not_disturb_time_start_2, do_not_disturb_time_end_1, do_not_disturb_time_end_2, is_locked]                # State 1 for on, 0 for off - Mode 1 for normal, 2 for smart
+        cmd = 221
+        type = 1
+        seq = self.sequence
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
+        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
         return
 
     async def set_reset_filter(self):
-        cmd = 222                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [0]                          # 0 resets it
+        cmd = 222
+        type = 1
+        seq = self.sequence
+        data = [0]
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
+        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
         return
 
-    # Not used -- maybe never
-    async def set_updated_light(self):
-        cmd = 225                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [0]                          # 0 resets it
-
+    async def set_updated_light(self, state):
+        cmd = 225
+        type = 1
+        seq = self.sequence
+        data = [state]
+        
+        bytes = Utils.build_command(seq, cmd, type, data)
+        await self.ble_manager.message_producer(bytes)
+        
+        self.increment_sequence()
+        self.logger.info(f"Queued command: {cmd}")
+        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
         return
 
-    # Not used -- maybe never
-    async def set_updated_dnd(self):
-        cmd = 226                           # Command for getting device details
-        type = 1                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [0]                          # 0 resets it
-
+    async def set_updated_dnd(self, state):
+        cmd = 226
+        type = 1
+        seq = self.sequence
+        data = [state]
+        
+        bytes = Utils.build_command(seq, cmd, type, data)
+        await self.ble_manager.message_producer(bytes)
+        
+        self.increment_sequence()
+        self.logger.info(f"Queued command: {cmd}")
+        await self.update_device_state()  # ← ОБНОВЛЯЕМ СОСТОЯНИЕ
         return
         
     async def get_device_update(self):
-        cmd = 230                           # Command for getting device details
-        type = 2                            # Type is 1 for sending - 2 for receiving
-        seq = self.sequence                 # Example sequence number
-        data = [1]                      # No additional data for this command
+        cmd = 230
+        type = 2
+        seq = self.sequence
+        data = [1]
         
         bytes = Utils.build_command(seq, cmd, type, data)
         await self.ble_manager.message_producer(bytes)
         
         self.increment_sequence()
-        
         self.logger.info(f"Queued command: {cmd}")
-
         return
