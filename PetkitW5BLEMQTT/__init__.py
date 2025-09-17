@@ -8,4 +8,6 @@ from .parsers import Parsers
 from .mqtt_payloads import MQTTPayloads
 from .mqtt_client import MQTTClient
 from .mqtt_callback import MQTTCallback
+
 from .commands import Commands
+from .mqtt_discovery import MQTTDiscovery
