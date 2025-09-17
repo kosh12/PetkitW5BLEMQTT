@@ -20,7 +20,11 @@ class BLEManager:
     async def scan(self):
         self.logger.info("Scanning for Petkit BLE devices...")
         devices = await BleakScanner.discover()
-        self.available_devices = {dev.address: dev for dev in devices if dev.name and ("W4" in dev.name or "W5" in dev.name or "CTW2" in dev.name)}
+        if devices is None:
+            self.available_devices = {}
+            self.logger.warning("No BLE devices found during scan")
+        else:
+            self.available_devices = {dev.address: dev for dev in devices if dev.name and ("W4" in dev.name or "W5" in dev.name or "CTW2" in dev.name)}
         for address, device in self.available_devices.items():
             self.logger.info(f"Found device: {device.name} ({address})")
             self.connectiondata[address] = device
@@ -135,3 +139,4 @@ class BLEManager:
 
     async def message_producer(self, message):
         await self.queue.put(message)
+
