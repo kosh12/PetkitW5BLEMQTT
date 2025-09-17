@@ -54,15 +54,29 @@ class MQTTClient:
         self.client.publish(topic, payload, qos, retain)
 
     def publish_availability(self, identifier, state):
+        # ↓↓↓ ДОБАВЛЕНО retain=True ↓↓↓
         self.client.publish(f"PetkitMQTT/{identifier}/availability", state, 0, True)
         
     def publish_state(self, identifier, state):
-        self.client.publish(f"PetkitMQTT/{identifier}/state", json.dumps(state))
+        # ↓↓↓ ДОБАВЛЕНО retain=True ↓↓↓
+        self.client.publish(f"PetkitMQTT/{identifier}/state", json.dumps(state), 0, True)
 
     def publish_discovery(self, discovery_payload):
         if isinstance(discovery_payload, list):
             for element in discovery_payload:
-                self.client.publish(element["config_topic"], json.dumps(element), retain=True)
+                # ↓↓↓ УЖЕ БЫЛО retain=True ↓↓↓
+                self.client.publish(element["config_topic"], json.dumps(element), 0, True)
         else:
-            self.client.publish(f'homeassistant/{discovery_payload["device_class"]}/{discovery_payload["unique_id"]}/config', json.dumps(discovery_payload), retain=True)
+            # ↓↓↓ УЖЕ БЫЛО retain=True ↓↓↓
+            self.client.publish(f'homeassistant/{discovery_payload["device_class"]}/{discovery_payload["unique_id"]}/config', json.dumps(discovery_payload), 0, True)
         self.connected = True
+
+    async def restore_states(self):
+        """Восстанавливаем все состояния после переподключения MQTT"""
+        try:
+            if hasattr(self, 'device'):
+                # Публикуем retained сообщения с последними состояниями
+                self.publish_state(self.device.mac_readable, self.device.status)
+                self.logger.info("Restored device state after MQTT reconnect")
+        except Exception as e:
+            self.logger.error(f"Failed to restore MQTT states: {e}")
