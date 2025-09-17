@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import logging
+import json
 from PetkitW5BLEMQTT import BLEManager, Constants, Device, EventHandlers, Commands, Logger, MQTTClient, MQTTCallback, MQTTPayloads, Utils
 from PetkitW5BLEMQTT.mqtt_discovery import MQTTDiscovery
 
@@ -25,12 +26,16 @@ class Manager:
         self.mqtt_client = None
         self.mqtt_callback = None
         self.mqtt_payloads = None
+        self.mqtt_discovery = None
 
         if mqtt_enabled and mqtt_settings:
             self.mqtt_client = MQTTClient(logger=self.logger, **mqtt_settings)
             self.mqtt_client.connect()
             self.event_handlers.callback = self.mqtt_client.publish_state
-
+            # ↓↓↓ ДОБАВЛЕНО ↓↓↓
+            self.event_handlers.callback = self.mqtt_client.publish_state
+            # ↑↑↑ ДОБАВЛЕНО ↑↑↑
+    
     def setup_logging(self, logging_level):
         logging.basicConfig(level=logging_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -51,7 +56,13 @@ class Manager:
             try:
                 # Connect to the device
                 await self.commands.init_device_connection()
-                
+
+                # ↓↓↓ ДОБАВЛЕНО ↓↓↓
+                # Setup Home Assistant MQTT Auto-Discovery
+                if self.mqtt_discovery:
+                    await self.mqtt_discovery.setup_ha_discovery(self.device)
+                # ↑↑↑ ДОБАВЛЕНО ↑↑↑
+
                 while self.device.serial == "Uninitialized":
                     self.logger.info(f"Device not initialized yet, waiting...")
                     await asyncio.sleep(1)
@@ -91,6 +102,13 @@ class Manager:
                 # Wait for queue to be empty and disconnect the device
                 await self.ble_manager.queue.join()
                 await self.ble_manager.disconnect_device(address)
+            except asyncio.CancelledError:
+                # Graceful shutdown
+                self.logger.info("Shutting down gracefully...")
+                if hasattr(self.ble_manager, 'mac') and self.ble_manager.mac:
+                    await self.ble_manager.disconnect_device(self.ble_manager.mac)
+                if self.mqtt_client:
+                    await self.mqtt_client.disconnect()
             finally:
                 if self.mqtt_client:
                     self.mqtt_client.publish_availability(self.device.mac_readable, "offline")
