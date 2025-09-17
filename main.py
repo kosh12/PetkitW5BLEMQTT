@@ -2,6 +2,8 @@ import argparse
 import asyncio
 import logging
 import json
+import os
+import time
 from PetkitW5BLEMQTT import BLEManager, Constants, Device, EventHandlers, Commands, Logger, MQTTClient, MQTTCallback, MQTTPayloads, Utils
 from PetkitW5BLEMQTT.mqtt_discovery import MQTTDiscovery
 
@@ -9,10 +11,14 @@ class Manager:
     def __init__(self, address, mqtt_enabled=False, mqtt_settings=None, logging_level=logging.INFO):
         self.setup_logging(logging_level)
         self.logger = logging.getLogger("PetkitW5BLEMQTT")
-        debug = logging_level == logging.DEBUG  # Determine if debug logging is enabled
+        debug = logging_level == logging.DEBUG
 
         self.address = address
         self.device = Device(self.address)
+        
+        # 🔄 Файл для сохранения состояния
+        self.state_file = f"/tmp/petkit_{address.replace(':', '')}_state.json"
+        self.load_device_state()  # Загружаем сохраненное состояние
 
         # Correct order of instantiation
         self.commands = Commands(ble_manager=None, device=self.device, logger=self.logger)
@@ -33,11 +39,30 @@ class Manager:
             self.mqtt_client.connect()
             self.event_handlers.callback = self.mqtt_client.publish_state
             # ↓↓↓ ДОБАВЛЕНО ↓↓↓
-            self.event_handlers.callback = self.mqtt_client.publish_state
+            self.mqtt_discovery = MQTTDiscovery(self.mqtt_client, self.logger)
             # ↑↑↑ ДОБАВЛЕНО ↑↑↑
     
     def setup_logging(self, logging_level):
         logging.basicConfig(level=logging_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    def load_device_state(self):
+        """Загружаем сохраненное состояние устройства"""
+        if os.path.exists(self.state_file):
+            try:
+                with open(self.state_file, 'r') as f:
+                    saved_state = json.load(f)
+                    self.device.status = saved_state
+                self.logger.info("Loaded saved device state")
+            except Exception as e:
+                self.logger.error(f"Error loading saved state: {e}")
+
+    def save_device_state(self):
+        """Сохраняем текущее состояние устройства"""
+        try:
+            with open(self.state_file, 'w') as f:
+                json.dump(self.device.status, f)
+        except Exception as e:
+            self.logger.error(f"Error saving device state: {e}")
 
     async def run(self, address):
         await self.ble_manager.scan()
@@ -92,8 +117,32 @@ class Manager:
 
                     # Post online to availability topic
                     self.mqtt_client.publish_availability(self.device.mac_readable, "online")
+                
+                # 🔄 ОСНОВНОЙ ЦИКЛ С СОХРАНЕНИЕМ СОСТОЯНИЯ
+                last_save_time = time.time()
                 while True:
-                    await asyncio.sleep(1)  # Example interval for ad-hoc message sending
+                    # Обновляем состояние если нужно
+                    await self.device.update_if_needed(self.commands)
+                    
+                    # Сохраняем состояние каждые 30 секунд
+                    current_time = time.time()
+                    if current_time - last_save_time > 30:
+                        self.save_device_state()
+                        last_save_time = current_time
+                    
+                    # Проверяем MQTT соединение и восстанавливаем если нужно
+                    if self.mqtt_client and not self.mqtt_client.connected:
+                        self.logger.warning("MQTT disconnected, attempting to reconnect...")
+                        try:
+                            self.mqtt_client.connect()
+                            # Восстанавливаем состояния после переподключения
+                            if hasattr(self.mqtt_client, 'restore_states'):
+                                await self.mqtt_client.restore_states()
+                            self.logger.info("MQTT reconnected and states restored")
+                        except Exception as e:
+                            self.logger.error(f"Failed to reconnect MQTT: {e}")
+                    
+                    await asyncio.sleep(5)  # Интервал проверки
 
             except KeyboardInterrupt:
                 # Handling cleanup on keyboard interrupt
@@ -110,6 +159,8 @@ class Manager:
                 if self.mqtt_client:
                     await self.mqtt_client.disconnect()
             finally:
+                # Сохраняем состояние перед выходом
+                self.save_device_state()
                 if self.mqtt_client:
                     self.mqtt_client.publish_availability(self.device.mac_readable, "offline")
                     self.mqtt_client.disconnect()
