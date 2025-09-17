@@ -130,18 +130,6 @@ class Manager:
                         self.save_device_state()
                         last_save_time = current_time
                     
-                    # Проверяем MQTT соединение и восстанавливаем если нужно
-                    if self.mqtt_client and not self.mqtt_client.connected:
-                        self.logger.warning("MQTT disconnected, attempting to reconnect...")
-                        try:
-                            self.mqtt_client.connect()
-                            # Восстанавливаем состояния после переподключения
-                            if hasattr(self.mqtt_client, 'restore_states'):
-                                await self.mqtt_client.restore_states()
-                            self.logger.info("MQTT reconnected and states restored")
-                        except Exception as e:
-                            self.logger.error(f"Failed to reconnect MQTT: {e}")
-                    
                     await asyncio.sleep(5)  # Интервал проверки
 
             except KeyboardInterrupt:
@@ -201,3 +189,4 @@ if __name__ == "__main__":
     manager = Manager(args.address, mqtt_enabled=args.mqtt, mqtt_settings=mqtt_settings, logging_level=logging_level)
 
     asyncio.run(manager.run(args.address))
+
